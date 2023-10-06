@@ -34,44 +34,72 @@ resource "google_compute_subnetwork" "adara-privsubnet-2" {
 resource "google_compute_router" "adara-router" {
   name    = "adara-router"
   region  = google_compute_subnetwork.adara-privsubnet-1.region
-  network = google_compute_network.adara-net.id
+  network = google_compute_network.adara-net.self_link
 }
 
 resource "google_compute_router_nat" "adara-nat" {
   name                               = "adara-nat"
-  router                             = google_compute_router.adara-router.id
+  router                             = google_compute_router.adara-router.name
   region                             = google_compute_router.adara-router.region
   nat_ip_allocate_option             = "AUTO_ONLY"
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
 }
 
-resource "google_compute_instance" "Adara-vm-priv" {
-  name = "Adara-vm-priv"
+resource "google_compute_instance" "adaravm" {
+  name         = "adaravm"
   machine_type = "n2-standard-2"
-  zone = "us-west2"
+  zone         = "us-west1-a"
 
-boot_disk {
+  boot_disk {
     initialize_params {
       image = "ubuntu-os-cloud/ubuntu-2004-lts"
+      labels = {
+        my_label = "value"
+      }
     }
   }
 
+  // Local SSD disk
+  scratch_disk {
+    interface = "SCSI"
+  }
+
   network_interface {
-    network = google_compute_network.adara-net.id
-    subnetwork = google_compute_subnetwork.adara-privsubnet-1.id
+    network = google_compute_network.adara-net.self_link
+
     access_config {
-      // Ephemeral IP
+      // Ephemeral public IP
     }
   }
 }
 
+# resource "google_compute_instance" "adarapriv" {
+#   name = "adarapriv"
+#   machine_type = "n2-standard-2"
+#   zone = "us-west1-b"
+
+# boot_disk {
+#     initialize_params {
+#       image = "ubuntu-os-cloud/ubuntu-2004-lts"
+#     }
+#   }
+
+#   network_interface {
+#     network = google_compute_network.adara-net.id
+#     subnetwork = google_compute_subnetwork.adara-privsubnet-1.id
+#     access_config {
+#       // Ephemeral IP
+#     }
+#   }
+# }
+
 resource "google_compute_instance_group" "webservers" {
   name        = "terraform-webservers"
   description = "Terraform test instance group"
-  zone = "us-west2"
+  zone = "us-west1-a"
 
   instances = [
-    google_compute_instance.Adara-vm-priv.id    
+    google_compute_instance.adaravm.id    
   ]
 
   named_port {
